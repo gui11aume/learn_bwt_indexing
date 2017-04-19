@@ -5,10 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/mman.h>
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "divsufsort.h"
 #include "index.h"
 
 struct range_t {
@@ -20,6 +20,7 @@ typedef struct range_t range_t;
 
 // Useful macros.
 #define ALL64 ((uint64_t) 0xFFFFFFFFFFFFFFFF)
+#define MMAP_FLAGS (MAP_PRIVATE | MAP_POPULATE)
 
 const char ENCODE[256] = { ['C'] = 1, ['G'] = 2, ['T'] = 3 };
 
@@ -134,17 +135,62 @@ int main(int argc, char ** argv) {
    exit_if(argc != 2);
    exit_if(strlen(argv[1]) > 250);
 
+
+   // Load index files.
+
+   BWT_t  * BWT;
+   Occ_t  * Occ;
+   SA_t   * SA;
+
+   size_t mmsz;
+
+   int fsar = open("index.sar", O_RDONLY);
+   if (fsar < 0) exit_cannot_open("index.sar");
+
+   mmsz = lseek(fsar, 0, SEEK_END);
+   SA = (SA_t *) mmap(NULL, mmsz, PROT_READ, MMAP_FLAGS, fsar, 0);
+   exit_if(SA == NULL);
+   close(fsar);
+
+
+   int fbwt = open("index.bwt", O_RDONLY);
+   if (fbwt < 0) exit_cannot_open("index.bwt");
+
+   mmsz = lseek(fbwt, 0, SEEK_END);
+   BWT = (BWT_t *) mmap(NULL, mmsz, PROT_READ, MMAP_FLAGS, fbwt, 0);
+   exit_if(BWT == NULL);
+   close(fbwt);
+
+
+   int focc = open("index.occ", O_RDONLY);
+   if (focc < 0) exit_cannot_open("index.occ");
+
+   mmsz = lseek(focc, 0, SEEK_END);
+   Occ = (Occ_t *) mmap(NULL, mmsz, PROT_READ, MMAP_FLAGS, focc, 0);
+   exit_if(Occ == NULL);
+   close(focc);
+
+
    // Open seq file.
-   FILE * fasta = fopen(argv[1], "r");
-   if (fasta == NULL) exit_cannot_open(argv[1]);
 
-   range_t range = backward_search("GAGA", Occ);
+   FILE * fseq = fopen(argv[1], "r");
+   if (fseq == NULL) exit_cannot_open(argv[1]);
+   
+   // Read file line by line.
+   ssize_t rlen;
+   size_t sz = 64; 
+   char * buffer = malloc(64);
+   exit_if_null(buffer);
 
-   fprintf(stdout, "SA range %zu:%zu\n", range.bot, range.top);
-   for (size_t i = range.bot ; i <= range.top ; i++) {
-      fprintf(stdout, "Text position: %zu\n",
-          query_SA(SA, BWT, Occ, i));
+   while ((rlen = getline(&buffer, &sz, fseq)) != -1) {
+      buffer[rlen-1] = '\0'; 
+      range_t range = backward_search(buffer, Occ);
+      fprintf(stdout, "%zu:%zu\n", range.bot, range.top);
    }
+//   for (size_t i = range.bot ; i <= range.top ; i++) {
+//      fprintf(stdout, "Text position: %zu\n",
+//          query_SA(SA, BWT, Occ, i));
+//   }
 
    // Clean up.
    free(SA);

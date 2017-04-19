@@ -11,14 +11,7 @@
 #include "divsufsort.h"
 #include "index.h"
 
-struct range_t {
-   size_t bot;
-   size_t top;
-};
-
-typedef struct range_t range_t;
-
-// Useful macros.
+// Useful macros
 #define ALL64 ((uint64_t) 0xFFFFFFFFFFFFFFFF)
 
 const char ENCODE[256] = { ['C'] = 1, ['G'] = 2, ['T'] = 3 };
@@ -293,6 +286,7 @@ int main(int argc, char ** argv) {
    ws = 0;
    sz = sizeof(SA_t) + SA->nb * sizeof(int64_t);
    while (ws < sz) ws += write(fsar, SA, sz - ws);
+   close(fsar);
 
 
    // Write the Burrows-Wheeler transform.
@@ -303,6 +297,7 @@ int main(int argc, char ** argv) {
    ws = 0;
    sz = sizeof(BWT_t) + BWT->nb * sizeof(uint8_t);
    while (ws < sz) ws += write(fbwt, BWT, sz - ws);
+   close(fbwt);
 
 
    // Write the Burrows-Wheeler transform.
@@ -313,6 +308,7 @@ int main(int argc, char ** argv) {
    ws = 0;
    sz = sizeof(Occ_t) + Occ->nb * AZ * sizeof(block_t);
    while (ws < sz) ws += write(focc, Occ, sz - ws);
+   close(focc);
 
    // Clean up.
    free(SA);
