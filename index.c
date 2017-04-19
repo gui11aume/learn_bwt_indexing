@@ -1,8 +1,13 @@
+#define _GNU_SOURCE
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #include "divsufsort.h"
 #include "index.h"
 
@@ -17,41 +22,6 @@ typedef struct range_t range_t;
 #define ALL64 ((uint64_t) 0xFFFFFFFFFFFFFFFF)
 
 const char ENCODE[256] = { ['C'] = 1, ['G'] = 2, ['T'] = 3 };
-
-int
-popcount
-(
-   uint32_t bits
-)
-// Compute the popcount of an 'int' of 32 bits. Divide it in 4
-// segments of 8 bits and make 4 references to the precomputed
-// lookup array POPOCOUNT. The lookup is small and fits in only
-// 4 cache lines, so most of the references to POPCOUNT during
-// the backward search will be cache hits (i.e > 10 times faster
-// than the references to 'block_t', which are mostly misses).
-{
-  const uint8_t POPCOUNT[256] = {
-    0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4, 1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,
-    1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5, 2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
-    1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5, 2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
-    2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6, 3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
-    1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5, 2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
-    2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6, 3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
-    2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6, 3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
-    3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7, 4,5,5,6,5,6,6,7,5,6,6,7,6,7,7,8,
-  };
-
-  // Shift repeatedly to the right compute the
-  // popcount of the lowest 8 bits and add.
-  return POPCOUNT[bits       & 0b11111111] + 
-         POPCOUNT[bits >> 8  & 0b11111111] + 
-         POPCOUNT[bits >> 16 & 0b11111111] + 
-         POPCOUNT[bits >> 24 & 0b11111111];
-}
-
-// The text has 13 characters, but in C it contains an
-// extra byte equal to '\0' at the end. This will act
-// as the terminator '$'.
 
 
 SA_t *
@@ -129,7 +99,7 @@ write_Occ_blocks
 // the BWT).
 {
    for (int i = 0 ; i < AZ ; i++) {
-      Occ->rows[Occ->nb*i + idx].smpl = smpl[i] - popcount(bits[i]);
+      Occ->rows[Occ->nb*i + idx].smpl = smpl[i];
       Occ->rows[Occ->nb*i + idx].bits = bits[i];
    }
 }
@@ -154,17 +124,19 @@ create_Occ
    Occ->yz = yz;
 
    uint32_t smpl[AZ] = {0};
+   uint32_t diff[AZ] = {0};
    uint32_t bits[AZ] = {0};
 
    for (size_t pos = 0 ; pos < BWT->yz ; pos++) {
       // Extract symbol at position 'i' from BWT.
       uint8_t c = BWT->slots[pos/4] >> 2*(pos % 4) & 0b11;
       if (pos != BWT->zero) { // Skip the '$' symbol.
-         smpl[c]++;
+         diff[c]++;
          bits[c] |= (1 << (31 - pos % 32));
       }
       if (pos % 32 == 31) { // Write every 32 entries.
          write_Occ_blocks(Occ, smpl, bits, pos/32);
+         memcpy(diff, smpl, AZ * sizeof(uint32_t));
          bzero(bits, sizeof(bits));
       }
    }
@@ -181,40 +153,6 @@ create_Occ
 
 }
 
-
-size_t
-get_rank
-(
-   Occ_t   * Occ,
-   uint8_t   c,
-   size_t    pos
-)
-{
-   if (pos == -1) return 1;
-   uint32_t smpl = Occ->rows[c*Occ->nb + pos/32].smpl;
-   uint32_t bits = Occ->rows[c*Occ->nb + pos/32].bits;
-   return Occ->C[c] + smpl + popcount(bits >> (31 - pos % 32));
-}
-
-
-range_t
-backward_search
-(
-         char   * query,
-         Occ_t  * Occ
-)
-// Used to search a substring using 'Occ' and 'C'.
-// Return (0,0) in case the query is not found.
-{
-   range_t range = { .bot = 0, .top = Occ->C[AZ]-1 };
-   for (int i = strlen(query)-1 ; i >= 0 ; i--) {
-      int c = ENCODE[(uint8_t) query[i]];
-      range.bot = get_rank(Occ, c, range.bot - 1);
-      range.top = get_rank(Occ, c, range.top) - 1;
-      if (range.top < range.top) return (range_t) {0};
-   }
-   return range;
-}
 
 
 SA_t *
@@ -266,55 +204,117 @@ compress_SA
 }
 
 
-size_t
-query_SA
+char *
+normalize_genome
 (
-   SA_t   * SA,
-   BWT_t  * BWT,
-   Occ_t  * Occ,
-   size_t   pos
+   FILE   * inputf
 )
 {
-   if (pos == BWT->zero) return 0;
-   if (pos % 16 == 0) {
-      // Value is sampled. Extract it.
-      size_t  idx = pos / 16;
-      size_t  lo = SA->nbits * idx;
-      size_t  hi = SA->nbits * (idx+1)-1;
-      uint64_t mask = ALL64 >> (64-SA->nbits);
-      if (lo/64 == hi/64) {
-         // Entry fits in a single 'uint64_t'.
-         return SA->bitf[lo/64] >> lo % 64 & mask;
+
+   // Read variables.
+   size_t sz = 64;
+   ssize_t rlen;
+   char * buffer = malloc(64);
+   exit_if_null(buffer);
+
+   // Genome storage.
+   size_t gsize = 0;
+   size_t gbufsize = 64;
+   char * genome = malloc(64); 
+   exit_if_null(genome);
+
+   while ((rlen = getline(&buffer, &sz, inputf)) != -1) {
+      if (buffer[0] == '>') rlen = 1; // Use '>' as separator.
+      if (gbufsize < gsize + rlen) {
+         while (gbufsize < gsize + rlen) gbufsize *= 2;
+         char * rsz = realloc(genome, gbufsize);
+         exit_if_null(rsz);
+         genome = rsz;
       }
-      else {
-         // Entry is split between two 'uint64_t'.
-         return (SA->bitf[lo/64] >> lo % 64 |
-                 SA->bitf[hi/64] << lo % 64) & mask;
-      }
+      int one_if_newline = (buffer[rlen-1] == '\n');
+      strncpy(genome + gsize, buffer, rlen - one_if_newline);
+      gsize += rlen - one_if_newline;
    }
-   uint8_t c = BWT->slots[pos/4] >> 2*(pos % 4) & 0b11;
-   size_t nextpos = get_rank(Occ, c, pos) - 1;
-   return query_SA(SA, BWT, Occ, nextpos) + 1;
+
+   // Normalize.
+   for (size_t pos = 0; pos < gsize ; pos++)
+      genome[pos] = NORMALIZE[(uint8_t) genome[pos]];
+
+   // Realloc buffer.
+   char * rsz = realloc(genome, 2*gsize + 1);
+   exit_if_null(rsz);
+   genome = rsz;
+
+   // Reverse complement.
+   size_t div = gsize;
+   for (size_t pos = 0 ; pos < div ; pos++)
+      genome[div + pos] = REVCOMP[(uint8_t) genome[div-pos-1]];
+
+   gsize = 2*gsize + 1;
+
+   // Add the terminator.
+   genome[2*div] = '\0';
+
+   // Clean up.
+   free(buffer);
+
+   return genome;
+
 }
 
+int main(int argc, char ** argv) {
 
-int main(void) {
+   // Sanity checks.
+   exit_if(argc != 2);
+   exit_if(strlen(argv[1]) > 250);
 
-   const char TXT[] = "GATGCGAGACTCGAGATG";
+   // Open fasta file.
+   FILE * fasta = fopen(argv[1], "r");
+   if (fasta == NULL) exit_cannot_open(argv[1]);
 
-   SA_t  * SA  = create_SA(TXT);
-   BWT_t * BWT = create_BWT(TXT, SA);
+   // Read and normalize genome
+   char * genome = normalize_genome(fasta);
+
+   SA_t  * SA  = create_SA(genome);
+   BWT_t * BWT = create_BWT(genome, SA);
            SA  = compress_SA(SA);
    Occ_t * Occ = create_Occ(BWT);
 
-   range_t range = backward_search("GAGA", Occ);
+   // Write files
+   char buff[256];
+   size_t ws;
+   size_t sz;
 
-   fprintf(stdout, "SA range %zu:%zu\n", range.bot, range.top);
-   for (size_t i = range.bot ; i <= range.top ; i++) {
-      fprintf(stdout, "Text position: %zu\n",
-          query_SA(SA, BWT, Occ, i));
-   }
+   // Write the suffix array file.
+   sprintf(buff, "%s.sar", argv[1]);
+   int fsar = open(buff, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+   if (fsar < 0) exit_cannot_open(buff);
 
+   ws = 0;
+   sz = sizeof(SA_t) + SA->nb * sizeof(int64_t);
+   while (ws < sz) ws += write(fsar, SA, sz - ws);
+
+
+   // Write the Burrows-Wheeler transform.
+   sprintf(buff, "%s.bwt", argv[1]);
+   int fbwt = open(buff, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+   if (fbwt < 0) exit_cannot_open(buff);
+
+   ws = 0;
+   sz = sizeof(BWT_t) + BWT->nb * sizeof(uint8_t);
+   while (ws < sz) ws += write(fbwt, BWT, sz - ws);
+
+
+   // Write the Burrows-Wheeler transform.
+   sprintf(buff, "%s.occ", argv[1]);
+   int focc = open(buff, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+   if (focc < 0) exit_cannot_open(buff);
+
+   ws = 0;
+   sz = sizeof(Occ_t) + Occ->nb * AZ * sizeof(block_t);
+   while (ws < sz) ws += write(focc, Occ, sz - ws);
+
+   // Clean up.
    free(SA);
    free(BWT);
    free(Occ);

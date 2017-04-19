@@ -4,13 +4,17 @@
 // Size of the alphabet.
 #define AZ 4
 
-// Useful macros.
-#define ALL64 ((uint64_t) 0xFFFFFFFFFFFFFFFF)
-
 #define exit_if_null(x) \
-   do { if ((x) == NULL) fprintf(stderr, "memory error %s:%d:%s()\n", \
-         __FILE__, __LINE__, __func__); } while(0)
+   do { if ((x) == NULL) { fprintf(stderr, "memory error %s:%d:%s()\n", \
+         __FILE__, __LINE__, __func__); exit(EXIT_FAILURE); }} while(0)
 
+#define exit_cannot_open(x) \
+   do { fprintf(stderr, "cannot open file '%s' %s:%d:%s()\n", (x), \
+         __FILE__, __LINE__, __func__); exit(EXIT_FAILURE); } while(0)
+
+#define exit_if(x) \
+   do { if (x) { fprintf(stderr, "%s %s:%d:%s()\n", #x, \
+         __FILE__, __LINE__, __func__); exit(EXIT_FAILURE); }} while(0)
 
 // Entries of the Occ table combine an Occ value (the cumulative
 // number of occurrences of the character in the BWT up to and
@@ -80,5 +84,74 @@ typedef struct block_t block_t;
 typedef struct BWT_t   BWT_t;
 typedef struct Occ_t   Occ_t;
 typedef struct SA_t    SA_t;
+
+
+
+#define REPEAT_126_EIGHT_TIMES 126,126,126,126,126,126,126,126
+
+const char NORMALIZE[256] = {
+    0,126,126,126,126,126,216,216,      REPEAT_126_EIGHT_TIMES,
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+  126,126,126,126,126, 65,126, 67,  126,126,126, 71,126,126,126,126,
+  //                    ^       ^                 ^  
+  //                   (A)     (C)               (G)
+  //
+  126,126,126,126,126,126,126,126,   84,126,126,126,126,126,126,126,
+  //                                  ^  
+  //                                 (T)
+  //
+  126,126,126,126,126, 65,126, 67,  126,126,126, 71,126,126,126,126,
+  //                    ^       ^                 ^  
+  //                  (a>A)   (c>C)             (g>G)
+  //
+  126,126,126,126,126,126,126,126,   84,126,126,126,126,126,126,126,
+  //                                  ^  
+  //                                (t>T)
+  //
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+};
+
+
+
+
+const char REVCOMP[256] = {
+    0,126,126,126,126,126,216,216,      REPEAT_126_EIGHT_TIMES,
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+  126,126,126,126,126, 84,126, 71,  126,126,126, 67,126,126,126,126,
+  //                    ^       ^                 ^  
+  //                  (A>T)   (C>G)             (G>C)
+  //
+  126,126,126,126,126,126,126,126,   65,126,126,126,126,126,126,126,
+  //                                  ^  
+  //                                (T>A)
+  //
+  126,126,126,126,126, 84,126, 71,  126,126,126, 67,126,126,126,126,
+  //                    ^       ^                 ^  
+  //                  (a>T)   (c>G)             (g>C)
+  //
+  126,126,126,126,126,126,126,126,   65,126,126,126,126,126,126,126,
+  //                                  ^  
+  //                                (t>A)
+  //
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+};
 
 #endif

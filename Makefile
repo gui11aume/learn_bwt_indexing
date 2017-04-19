@@ -1,5 +1,6 @@
 CC= gcc
-CFLAGS= -std=c99 -Wall -g -O0
+#CFLAGS= -std=c99 -Wall -g -O0
+CFLAGS= -std=c99 -Wall -O3
 
 #all: do
 #	./do
