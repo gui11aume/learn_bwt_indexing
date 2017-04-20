@@ -86,72 +86,39 @@ typedef struct Occ_t   Occ_t;
 typedef struct SA_t    SA_t;
 
 
+const char ALPHABET[4] = "ACGT";
 
-#define REPEAT_126_EIGHT_TIMES 126,126,126,126,126,126,126,126
-
-const char NORMALIZE[256] = {
-    0,126,126,126,126,126,216,216,      REPEAT_126_EIGHT_TIMES,
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
-  126,126,126,126,126, 65,126, 67,  126,126,126, 71,126,126,126,126,
-  //                    ^       ^                 ^  
-  //                   (A)     (C)               (G)
-  //
-  126,126,126,126,126,126,126,126,   84,126,126,126,126,126,126,126,
-  //                                  ^  
-  //                                 (T)
-  //
-  126,126,126,126,126, 65,126, 67,  126,126,126, 71,126,126,126,126,
-  //                    ^       ^                 ^  
-  //                  (a>A)   (c>C)             (g>G)
-  //
-  126,126,126,126,126,126,126,126,   84,126,126,126,126,126,126,126,
-  //                                  ^  
-  //                                (t>T)
-  //
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+const uint8_t NONALPHABET[256] = {
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,0,1,0,1,1,1,0,1,1,1,1,1,1,1,1, 1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,
+    1,0,1,0,1,1,1,0,1,1,1,1,1,1,1,1, 1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 };
 
 
-
+#define A 'A'
+#define C 'C'
+#define G 'G'
+#define T 'T'
 
 const char REVCOMP[256] = {
-    0,126,126,126,126,126,216,216,      REPEAT_126_EIGHT_TIMES,
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
-  126,126,126,126,126, 84,126, 71,  126,126,126, 67,126,126,126,126,
-  //                    ^       ^                 ^  
-  //                  (A>T)   (C>G)             (G>C)
-  //
-  126,126,126,126,126,126,126,126,   65,126,126,126,126,126,126,126,
-  //                                  ^  
-  //                                (T>A)
-  //
-  126,126,126,126,126, 84,126, 71,  126,126,126, 67,126,126,126,126,
-  //                    ^       ^                 ^  
-  //                  (a>T)   (c>G)             (g>C)
-  //
-  126,126,126,126,126,126,126,126,   65,126,126,126,126,126,126,126,
-  //                                  ^  
-  //                                (t>A)
-  //
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
-       REPEAT_126_EIGHT_TIMES,          REPEAT_126_EIGHT_TIMES,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,T,0,G,0,0,0,C,0,0,0,0,0,0,0,0, 0,0,0,0,A,0,0,0,0,0,0,0,0,0,0,0,
+    0,T,0,G,0,0,0,C,0,0,0,0,0,0,0,0, 0,0,0,0,A,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 };
+
+#undef A
+#undef C
+#undef G
+#undef T
 
 #endif

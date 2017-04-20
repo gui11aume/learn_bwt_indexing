@@ -129,7 +129,7 @@ create_Occ
       }
       if (pos % 32 == 31) { // Write every 32 entries.
          write_Occ_blocks(Occ, smpl, bits, pos/32);
-         memcpy(diff, smpl, AZ * sizeof(uint32_t));
+         memcpy(smpl, diff, AZ * sizeof(uint32_t));
          bzero(bits, sizeof(bits));
       }
    }
@@ -139,7 +139,7 @@ create_Occ
    // Write 'nb' and 'C'.
    Occ->C[0] = 1;
    for (int i = 1 ; i < AZ+1 ; i++) {
-      Occ->C[i] = Occ->C[i-1] + smpl[i-1];
+      Occ->C[i] = Occ->C[i-1] + diff[i-1];
    }
 
    return Occ;
@@ -229,9 +229,13 @@ normalize_genome
       gsize += rlen - one_if_newline;
    }
 
-   // Normalize.
-   for (size_t pos = 0; pos < gsize ; pos++)
-      genome[pos] = NORMALIZE[(uint8_t) genome[pos]];
+   // Normalize (use only alphabet letters).
+   for (size_t pos = 0; pos < gsize ; pos++) {
+      int iter = 0;
+      if (NONALPHABET[(uint8_t) genome[pos]]) {
+        genome[pos] = ALPHABET[iter++ % 4];
+      }
+   }
 
    // Realloc buffer.
    char * rsz = realloc(genome, 2*gsize + 1);
@@ -279,7 +283,7 @@ int main(int argc, char ** argv) {
    size_t sz;
 
    // Write the suffix array file.
-   sprintf(buff, "%s.sar", argv[1]);
+   sprintf(buff, "%s.sa", argv[1]);
    int fsar = open(buff, O_WRONLY | O_CREAT | O_TRUNC, 0644);
    if (fsar < 0) exit_cannot_open(buff);
 

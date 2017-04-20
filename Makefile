@@ -1,6 +1,7 @@
 CC= gcc
-CFLAGS= -std=c99 -Wall -g -O0
-#CFLAGS= -std=c99 -Wall -O3
+#CFLAGS= -std=c99 -Wall -g -O0
+#CFLAGS= -std=c99 -Wall -O3 -g -pg -fprofile-arcs -ftest-coverage
+CFLAGS= -std=c99 -Wall -O3
 
 all: index seed
 

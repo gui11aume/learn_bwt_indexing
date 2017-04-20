@@ -20,7 +20,20 @@ typedef struct range_t range_t;
 
 // Useful macros.
 #define ALL64 ((uint64_t) 0xFFFFFFFFFFFFFFFF)
+
+#if __linux__
+#include <linux/version.h>
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,22)
+#define _MAP_POPULATE_AVAILABLE
+#endif
+#endif
+
+#ifdef _MAP_POPULATE_AVAILABLE
 #define MMAP_FLAGS (MAP_PRIVATE | MAP_POPULATE)
+#else
+#define MMAP_FLAGS MAP_PRIVATE
+#endif
+
 
 const char ENCODE[256] = { ['C'] = 1, ['G'] = 2, ['T'] = 3 };
 
@@ -72,15 +85,18 @@ get_rank
    if (pos == -1) return 1;
    uint32_t smpl = Occ->rows[c*Occ->nb + pos/32].smpl;
    uint32_t bits = Occ->rows[c*Occ->nb + pos/32].bits;
-   return Occ->C[c] + smpl + popcount(bits >> (31 - pos % 32));
+   // This option is 10-15% slower than built in popcount.
+   //return Occ->C[c] + smpl + popcount(bits >> (31 - pos % 32));
+   return Occ->C[c] + smpl + __builtin_popcountl(bits >> (31 - pos % 32));
+
 }
 
 
 range_t
 backward_search
 (
-         char   * query,
-         Occ_t  * Occ
+   char   * query,
+   Occ_t  * Occ
 )
 // Used to search a substring using 'Occ' and 'C'.
 // Return (0,0) in case the query is not found.
@@ -90,7 +106,7 @@ backward_search
       int c = ENCODE[(uint8_t) query[i]];
       range.bot = get_rank(Occ, c, range.bot - 1);
       range.top = get_rank(Occ, c, range.top) - 1;
-      if (range.top < range.top) return (range_t) {0};
+      if (range.top < range.bot) return (range_t) {0};
    }
    return range;
 }
@@ -144,8 +160,8 @@ int main(int argc, char ** argv) {
 
    size_t mmsz;
 
-   int fsar = open("index.sar", O_RDONLY);
-   if (fsar < 0) exit_cannot_open("index.sar");
+   int fsar = open("index.sa", O_RDONLY);
+   if (fsar < 0) exit_cannot_open("index.sa");
 
    mmsz = lseek(fsar, 0, SEEK_END);
    SA = (SA_t *) mmap(NULL, mmsz, PROT_READ, MMAP_FLAGS, fsar, 0);
@@ -182,19 +198,12 @@ int main(int argc, char ** argv) {
    char * buffer = malloc(64);
    exit_if_null(buffer);
 
+   fprintf(stderr, "let's go\n");
    while ((rlen = getline(&buffer, &sz, fseq)) != -1) {
       buffer[rlen-1] = '\0'; 
       range_t range = backward_search(buffer, Occ);
       fprintf(stdout, "%zu:%zu\n", range.bot, range.top);
+//      fprintf(stdout, "%zu\n", query_SA(SA, BWT, Occ, range.bot));
    }
-//   for (size_t i = range.bot ; i <= range.top ; i++) {
-//      fprintf(stdout, "Text position: %zu\n",
-//          query_SA(SA, BWT, Occ, i));
-//   }
-
-   // Clean up.
-   free(SA);
-   free(BWT);
-   free(Occ);
 
 }
