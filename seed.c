@@ -11,13 +11,6 @@
 
 #include "index.h"
 
-struct range_t {
-   size_t bot;
-   size_t top;
-};
-
-typedef struct range_t range_t;
-
 // Useful macros.
 #define ALL64 ((uint64_t) 0xFFFFFFFFFFFFFFFF)
 
@@ -101,8 +94,22 @@ backward_search
 // Used to search a substring using 'Occ' and 'C'.
 // Return (0,0) in case the query is not found.
 {
-   range_t range = { .bot = 0, .top = Occ->C[AZ]-1 };
-   for (int i = strlen(query)-1 ; i >= 0 ; i--) {
+
+   size_t m = strlen(query);
+   int i0 = m-1;
+
+   range_t range = { .bot = 0, .top = Occ->yz-1 };
+
+   if (strlen(query) >= HSTUB) {
+      size_t merid = 0;
+      for (int j = 0 ; j < HSTUB ; j++) {
+         merid = (merid << 2) + ENCODE[(uint8_t) query[m-1-j]];
+      }
+      range = Occ->stub[merid];
+      i0 = m-1 - HSTUB;
+   }
+
+   for (int i = i0 ; i >= 0 ; i--) {
       int c = ENCODE[(uint8_t) query[i]];
       range.bot = get_rank(Occ, c, range.bot - 1);
       range.top = get_rank(Occ, c, range.top) - 1;
@@ -198,11 +205,10 @@ int main(int argc, char ** argv) {
    char * buffer = malloc(64);
    exit_if_null(buffer);
 
-   fprintf(stderr, "let's go\n");
    while ((rlen = getline(&buffer, &sz, fseq)) != -1) {
       buffer[rlen-1] = '\0'; 
       range_t range = backward_search(buffer, Occ);
-      fprintf(stdout, "%zu:%zu\n", range.bot, range.top);
+      fprintf(stdout, "%s %zu:%zu\n", buffer, range.bot, range.top);
 //      fprintf(stdout, "%zu\n", query_SA(SA, BWT, Occ, range.bot));
    }
 

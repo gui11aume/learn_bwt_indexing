@@ -50,17 +50,25 @@ struct block_t {
    unsigned int bits : 32;    // Bitfield Occ values.
 };
 
+struct range_t {
+   size_t bot;
+   size_t top;
+};
 
 // The 'Occ_t' struct contains a size variable 'sz', followed by
 // 'AZ' arrays of 'block_t', where 'AZ' is the number of letters in
 // the alphabet. Note that 'sz' is not the number of 'block_t' in
 // the arrays, but the size of the BWT, including the termination
 // character.
+
+#define HSTUB 12
+#define MERS 1 << (2*HSTUB)
 struct Occ_t {
-          size_t   yz;       // Size of the text.
-          size_t   nb;       // Number of entries.
-          size_t   C[AZ+1];  // The 'C' array.
-   struct block_t  rows[0];  // Entries.
+          size_t   yz;         // Size of the text.
+          size_t   nb;         // Number of entries.
+          size_t   C[AZ+1];    // The 'C' array.
+   struct range_t  stub[MERS]; // The stub table.
+   struct block_t  rows[0];    // Entries.
 };
 
 
@@ -80,9 +88,11 @@ struct BWT_t {
    uint8_t  slots[0];
 };
 
+
 typedef struct block_t block_t;
 typedef struct BWT_t   BWT_t;
 typedef struct Occ_t   Occ_t;
+typedef struct range_t range_t;
 typedef struct SA_t    SA_t;
 
 

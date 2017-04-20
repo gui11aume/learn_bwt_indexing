@@ -98,6 +98,47 @@ write_Occ_blocks
 }
 
 
+size_t
+get_rank
+(
+   Occ_t   * Occ,
+   uint8_t   c,
+   size_t    pos
+)
+{
+   if (pos == -1) return 1;
+   uint32_t smpl = Occ->rows[c*Occ->nb + pos/32].smpl;
+   uint32_t bits = Occ->rows[c*Occ->nb + pos/32].bits;
+   // This option is 10-15% slower than built in popcount.
+   //return Occ->C[c] + smpl + popcount(bits >> (31 - pos % 32));
+   return Occ->C[c] + smpl + __builtin_popcountl(bits >> (31 - pos % 32));
+
+}
+
+
+
+void
+fill_stub
+(
+   Occ_t   * Occ,
+   range_t   range,
+   size_t    depth,
+   size_t    merid
+)
+{
+   if (depth >= HSTUB) {
+      Occ->stub[merid] = range;
+      return;
+   }
+   for (uint8_t c = 0 ; c < AZ ; c++) {
+      size_t bot = get_rank(Occ, c, range.bot - 1);
+      size_t top = get_rank(Occ, c, range.top) - 1;
+      fill_stub(Occ, (range_t) { .bot=bot, .top=top },
+            depth+1, c + (merid << 2));
+   }
+}
+
+
 Occ_t *
 create_Occ
 (
@@ -141,6 +182,9 @@ create_Occ
    for (int i = 1 ; i < AZ+1 ; i++) {
       Occ->C[i] = Occ->C[i-1] + diff[i-1];
    }
+
+   range_t range = {.bot = 0, .top = yz-1};
+   fill_stub(Occ, range, 0, 0);
 
    return Occ;
 
