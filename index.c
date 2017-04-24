@@ -1,20 +1,5 @@
-#define _GNU_SOURCE
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#include "divsufsort.h"
 #include "index.h"
-
-// Useful macros
-#define ALL64 ((uint64_t) 0xFFFFFFFFFFFFFFFF)
-
-const char ENCODE[256] = { ['C'] = 1, ['G'] = 2, ['T'] = 3 };
+#include "divsufsort.h"
 
 
 SA_t *
@@ -50,7 +35,7 @@ create_BWT
 {
 
    // Do not use on compressed suffix arrays.
-   if (SA->nbits != 64) return NULL;
+   if (SA->nb != SA->yz) return NULL;
 
    // Allocate new 'BWT_t'.
    const size_t yz = SA->yz;
@@ -109,12 +94,9 @@ get_rank
    if (pos == -1) return 1;
    uint32_t smpl = Occ->rows[c*Occ->nb + pos/32].smpl;
    uint32_t bits = Occ->rows[c*Occ->nb + pos/32].bits;
-   // This option is 10-15% slower than built in popcount.
-   //return Occ->C[c] + smpl + popcount(bits >> (31 - pos % 32));
    return Occ->C[c] + smpl + __builtin_popcountl(bits >> (31 - pos % 32));
 
 }
-
 
 
 void
@@ -200,7 +182,7 @@ compress_SA
 {
 
    // Do not run on compressed 'SA_t'.
-   if (SA->nbits != 64) return NULL;
+   if (SA->nb != SA->yz) return NULL;
 
    // Compute the number of required bits.
    size_t nbits = 0;
@@ -235,7 +217,7 @@ compress_SA
    SA->nbits = nbits;
 
    // Reallocate the 'SA_t'.
-   size_t extra = (nb * nbits + (64-1)) / 64 * sizeof(uint64_t);
+   size_t extra = nb * sizeof(int64_t);
    return realloc(SA, sizeof(SA_t) + extra);
 
 }
@@ -323,39 +305,43 @@ int main(int argc, char ** argv) {
 
    // Write files
    char buff[256];
-   size_t ws;
+   char * data;
+   ssize_t ws;
    size_t sz;
 
    // Write the suffix array file.
    sprintf(buff, "%s.sa", argv[1]);
-   int fsar = open(buff, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+   int fsar = creat(buff, 0644);
    if (fsar < 0) exit_cannot_open(buff);
-
+   
    ws = 0;
    sz = sizeof(SA_t) + SA->nb * sizeof(int64_t);
-   while (ws < sz) ws += write(fsar, SA, sz - ws);
+   data = (char *) SA;
+   while (ws < sz) ws += write(fsar, data + ws, sz - ws);
    close(fsar);
 
 
    // Write the Burrows-Wheeler transform.
    sprintf(buff, "%s.bwt", argv[1]);
-   int fbwt = open(buff, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+   int fbwt = creat(buff, 0644);
    if (fbwt < 0) exit_cannot_open(buff);
 
    ws = 0;
    sz = sizeof(BWT_t) + BWT->nb * sizeof(uint8_t);
-   while (ws < sz) ws += write(fbwt, BWT, sz - ws);
+   data = (char *) BWT;
+   while (ws < sz) ws += write(fbwt, data + ws, sz - ws);
    close(fbwt);
 
 
    // Write the Burrows-Wheeler transform.
    sprintf(buff, "%s.occ", argv[1]);
-   int focc = open(buff, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+   int focc = creat(buff, 0644);
    if (focc < 0) exit_cannot_open(buff);
 
    ws = 0;
    sz = sizeof(Occ_t) + Occ->nb * AZ * sizeof(block_t);
-   while (ws < sz) ws += write(focc, Occ, sz - ws);
+   data = (char *) Occ;
+   while (ws < sz) ws += write(focc, data + ws, sz - ws);
    close(focc);
 
    // Clean up.
