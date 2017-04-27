@@ -138,7 +138,8 @@ typedef struct SA_t    SA_t;
 // ------- Text manipulation ------- //
 
 const char ALPHABET[4] = "ACGT";
-const char ENCODE[256] = { ['C'] = 1, ['G'] = 2, ['T'] = 3 };
+const char ENCODE[256] = { ['c'] = 1, ['g'] = 2, ['t'] = 3,
+   ['C'] = 1, ['G'] = 2, ['T'] = 3 };
 
 const uint8_t NONALPHABET[256] = {
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
