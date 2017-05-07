@@ -1,5 +1,60 @@
-#include "index.h"
+#define _GNU_SOURCE
 #include "divsufsort.h"
+#include "bwt.h"
+
+/*
+
+NKK_t *
+create_NKK
+(
+   const char  * genome,
+   const SA_t  * SA,
+   const BWT_t * BWT,
+   const Occ_t * Occ
+)
+{
+
+   size_t yz = SA->yz;
+   size_t extra = yz * sizeof(uint8_t);
+
+   NKK_t * NKK = calloc(1, sizeof(NKK_t) + extra);
+   exit_if_null(NKK);
+
+   NKK->yz = yz;
+   NKK->nb = yz;
+
+   for (size_t pos = 0 ; pos < yz ; pos++) {
+
+      if (pos % 1000 == 0) {
+         fprintf(stderr, "%ld\r", pos);
+      }
+
+      // Get k-mer from genome.
+      char buff[21] = {0};
+      memcpy(buff, &genome[pos], 20);
+      
+      for (int mut = 19 ; mut >= 0 ; mut--) {
+         // Scan all the positions, one at a time.
+         for (uint8_t c = 0 ; c < 4 ; c++) {
+            if (c == genome[pos + mut]) continue;
+            buff[mut] = ENCODE[c];
+            range_t range = backward_search(buff, 20, Occ);
+            if (range.bot && range.top - range.bot < 1) {
+               for (size_t idx = range.bot ; idx <= range.top ; idx++) {
+                  size_t gpos = SA->bitf[idx];
+                  NKK->byte[gpos] = 1;
+               }
+            }
+         }
+         // Reset the buffer.
+         buff[mut] = genome[pos + mut];
+      }
+   }
+
+   return NKK;
+
+}
+*/
 
 
 SA_t *
@@ -80,22 +135,6 @@ write_Occ_blocks
       Occ->rows[Occ->nb*i + idx].smpl = smpl[i];
       Occ->rows[Occ->nb*i + idx].bits = bits[i];
    }
-}
-
-
-size_t
-get_rank
-(
-   Occ_t   * Occ,
-   uint8_t   c,
-   size_t    pos
-)
-{
-   if (pos == -1) return 1;
-   uint32_t smpl = Occ->rows[c*Occ->nb + pos/32].smpl;
-   uint32_t bits = Occ->rows[c*Occ->nb + pos/32].bits;
-   return Occ->C[c] + smpl + __builtin_popcountl(bits >> (31 - pos % 32));
-
 }
 
 
@@ -300,8 +339,9 @@ int main(int argc, char ** argv) {
 
    SA_t  * SA  = create_SA(genome);
    BWT_t * BWT = create_BWT(genome, SA);
-           SA  = compress_SA(SA);
    Occ_t * Occ = create_Occ(BWT);
+//   NKK_t * NKK = create_NKK(genome, SA, BWT, Occ);
+           SA  = compress_SA(SA);
 
    // Write files
    char buff[256];

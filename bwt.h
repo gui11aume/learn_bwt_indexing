@@ -11,8 +11,16 @@
 #include <unistd.h>
 
 
-#ifndef _BWT_INDEX_H
-#define _BWT_INDEX_H
+// ------- Text manipulation ------- //
+
+extern const char    ALPHABET[4];
+extern const char    ENCODE[256];
+extern const char    REVCOMP[256];
+extern const uint8_t NONALPHABET[256];
+
+
+#ifndef _BWT_INDEX_H_
+#define _BWT_INDEX_H_
 
 // ------- Diverse definitions ------- //
 
@@ -128,55 +136,25 @@ struct BWT_t {
 };
 
 
+// The (neighbor k-mers keys).
+struct NKK_t {
+   size_t   yz;       // 'strlen(txt) + 1'.
+   size_t   nb;       // Number of slots.
+   uint8_t  byte[0];  // Key encoding.
+};
+
+
 typedef struct block_t block_t;
 typedef struct BWT_t   BWT_t;
+typedef struct NKK_t   NKK_t;
 typedef struct Occ_t   Occ_t;
 typedef struct range_t range_t;
 typedef struct SA_t    SA_t;
 
 
-// ------- Text manipulation ------- //
-
-const char ALPHABET[4] = "ACGT";
-const char ENCODE[256] = { ['c'] = 1, ['g'] = 2, ['t'] = 3,
-   ['C'] = 1, ['G'] = 2, ['T'] = 3 };
-
-const uint8_t NONALPHABET[256] = {
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
-    1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 
-    1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
-    1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 
-    1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
-};
-
-const char REVCOMP[256] = {
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-    0,'T',0,'G',0, 0, 0,'C',0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0,'A',0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-    0,'T',0,'G',0, 0, 0,'C',0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0,'A',0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-};
+// Visible functions from search.c.
+range_t backward_search (char *, size_t, const Occ_t *);
+size_t  query_SA (SA_t *, BWT_t *, Occ_t *, size_t);
+size_t  get_rank (const Occ_t *, uint8_t, size_t);
 
 #endif

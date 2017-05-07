@@ -1,19 +1,19 @@
+P= index seed
+
 CC= gcc
-#CFLAGS= -std=c99 -Wall -g -O0
-#CFLAGS= -std=c99 -Wall -O3 -g -pg -fprofile-arcs -ftest-coverage
-CFLAGS= -std=c99 -Wall -O3
+CFLAGS= -std=c99 -Wall
 
-all: index seed
+all: CFLAGS += -DNDEBUG -O3
+all: $(P)
 
-index: index.c divsufsort.o index.h
-	$(CC) $(CFLAGS) index.c divsufsort.o -o index
+debug: CFLAGS += -DDEBUG -g -O0
+debug: $(P)
 
-seed: seed.c index.h
-	$(CC) $(CFLAGS) seed.c -o seed
+index: index.c divsufsort.o search.o bwt.h
+	$(CC) $(CFLAGS) index.c divsufsort.o search.o -o index
 
-
-do: src2.c divsufsort.o
-	$(CC) $(CFLAGS) src2.c divsufsort.o -o do
+seed: seed.c search.o bwt.h
+	$(CC) $(CFLAGS) seed.c search.o -o seed
 
 clean:
-	rm divsufsort.o index seed
+	rm -f divsufsort.o search.o $(P)
