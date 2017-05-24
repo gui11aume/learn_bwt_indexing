@@ -204,7 +204,7 @@ create_Occ
       Occ->C[i] = Occ->C[i-1] + diff[i-1];
    }
 
-   range_t range = {.bot = 0, .top = yz-1};
+   range_t range = {.bot = 1, .top = yz-1};
    fill_stub(Occ, range, 0, 0);
 
    return Occ;
@@ -335,13 +335,26 @@ int main(int argc, char ** argv) {
    if (fasta == NULL) exit_cannot_open(argv[1]);
 
    // Read and normalize genome
+   fprintf(stderr, "reading genome...");
    char * genome = normalize_genome(fasta);
+   fprintf(stderr, "done\n");
 
+   fprintf(stderr, "creating suffix array...");
    SA_t  * SA  = create_SA(genome);
+   fprintf(stderr, "done\n");
+
+   fprintf(stderr, "creating BWT...");
    BWT_t * BWT = create_BWT(genome, SA);
+   fprintf(stderr, "done\n");
+
+   fprintf(stderr, "creating Occ table...");
    Occ_t * Occ = create_Occ(BWT);
+   fprintf(stderr, "done\n");
 //   NKK_t * NKK = create_NKK(genome, SA, BWT, Occ);
+//
+   fprintf(stderr, "compressing suffix array...");
            SA  = compress_SA(SA);
+   fprintf(stderr, "done\n");
 
    // Write files
    char buff[256];

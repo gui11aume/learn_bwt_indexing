@@ -51,11 +51,9 @@ get_rank
          size_t    pos
 )
 {
-   if (pos == -1) return Occ->C[c];
    uint32_t smpl = Occ->rows[c*Occ->nb + pos/32].smpl;
    uint32_t bits = Occ->rows[c*Occ->nb + pos/32].bits;
    return Occ->C[c] + smpl + __builtin_popcountl(bits >> (31 - pos % 32));
-
 }
 
 
@@ -70,7 +68,7 @@ backward_search
 // Return (0,0) in case the query is not found.
 {
 
-   range_t range = { .bot = 0, .top = Occ->yz-1 };
+   range_t range = { .bot = 1, .top = Occ->yz-1 };
    size_t pos = len-1;
 
    if (len >= HSTUB) {
