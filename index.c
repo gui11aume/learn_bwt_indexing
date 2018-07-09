@@ -2,60 +2,6 @@
 #include "divsufsort.h"
 #include "bwt.h"
 
-/*
-
-NKK_t *
-create_NKK
-(
-   const char  * genome,
-   const SA_t  * SA,
-   const BWT_t * BWT,
-   const Occ_t * Occ
-)
-{
-
-   size_t yz = SA->yz;
-   size_t extra = yz * sizeof(uint8_t);
-
-   NKK_t * NKK = calloc(1, sizeof(NKK_t) + extra);
-   exit_if_null(NKK);
-
-   NKK->yz = yz;
-   NKK->nb = yz;
-
-   for (size_t pos = 0 ; pos < yz ; pos++) {
-
-      if (pos % 1000 == 0) {
-         fprintf(stderr, "%ld\r", pos);
-      }
-
-      // Get k-mer from genome.
-      char buff[21] = {0};
-      memcpy(buff, &genome[pos], 20);
-      
-      for (int mut = 19 ; mut >= 0 ; mut--) {
-         // Scan all the positions, one at a time.
-         for (uint8_t c = 0 ; c < 4 ; c++) {
-            if (c == genome[pos + mut]) continue;
-            buff[mut] = ENCODE[c];
-            range_t range = backward_search(buff, 20, Occ);
-            if (range.bot && range.top - range.bot < 1) {
-               for (size_t idx = range.bot ; idx <= range.top ; idx++) {
-                  size_t gpos = SA->bitf[idx];
-                  NKK->byte[gpos] = 1;
-               }
-            }
-         }
-         // Reset the buffer.
-         buff[mut] = genome[pos + mut];
-      }
-   }
-
-   return NKK;
-
-}
-*/
-
 
 SA_t *
 create_SA
@@ -185,11 +131,11 @@ create_Occ
    for (size_t pos = 0 ; pos < BWT->yz ; pos++) {
       // Extract symbol at position 'i' from BWT.
       uint8_t c = BWT->slots[pos/4] >> 2*(pos % 4) & 0b11;
-      if (pos != BWT->zero) { // Skip the '$' symbol.
+      if (pos != BWT->zero) {   // (Skip the '$' symbol).
          diff[c]++;
          bits[c] |= (1 << (31 - pos % 32));
       }
-      if (pos % 32 == 31) { // Write every 32 entries.
+      if (pos % 32 == 31) {     // Write every 32 entries.
          write_Occ_blocks(Occ, smpl, bits, pos/32);
          memcpy(smpl, diff, AZ * sizeof(uint32_t));
          bzero(bits, sizeof(bits));
@@ -220,7 +166,8 @@ compress_SA
 )
 {
 
-   // Do not run on compressed 'SA_t'.
+   // TODO: separate compressed and uncompressed SA types.
+   // Make sure that SA is not already compressed.
    if (SA->nb != SA->yz) return NULL;
 
    // Compute the number of required bits.
@@ -281,8 +228,9 @@ normalize_genome
    char * genome = malloc(64); 
    exit_if_null(genome);
 
+   // Load fasta file line by line and concatenate.
    while ((rlen = getline(&buffer, &sz, inputf)) != -1) {
-      if (buffer[0] == '>') rlen = 1; // Use '>' as separator.
+      if (buffer[0] == '>') continue;
       if (gbufsize < gsize + rlen) {
          while (gbufsize < gsize + rlen) gbufsize *= 2;
          char * rsz = realloc(genome, gbufsize);
@@ -298,7 +246,13 @@ normalize_genome
    for (size_t pos = 0; pos < gsize ; pos++) {
       int iter = 0;
       if (NONALPHABET[(uint8_t) genome[pos]]) {
-        genome[pos] = ALPHABET[iter++ % 4];
+         // Replace by cycling over (A,C,G,T).
+         genome[pos] = ALPHABET[iter++ % 4];
+      }
+      else {
+         // Use only capital letters (important for
+         // sorting the suffixes in lexicographic order).
+         genome[pos] = toupper(genome[pos]);
       }
    }
 
@@ -324,6 +278,7 @@ normalize_genome
 
 }
 
+
 int main(int argc, char ** argv) {
 
    // Sanity checks.
@@ -335,25 +290,24 @@ int main(int argc, char ** argv) {
    if (fasta == NULL) exit_cannot_open(argv[1]);
 
    // Read and normalize genome
-   fprintf(stderr, "reading genome...");
+   fprintf(stderr, "reading genome... ");
    char * genome = normalize_genome(fasta);
    fprintf(stderr, "done\n");
 
-   fprintf(stderr, "creating suffix array...");
-   SA_t  * SA  = create_SA(genome);
+   fprintf(stderr, "creating suffix array... ");
+   SA_t * SA  = create_SA(genome);
    fprintf(stderr, "done\n");
 
-   fprintf(stderr, "creating BWT...");
+   fprintf(stderr, "creating BWT... ");
    BWT_t * BWT = create_BWT(genome, SA);
    fprintf(stderr, "done\n");
 
-   fprintf(stderr, "creating Occ table...");
+   fprintf(stderr, "creating Occ table... ");
    Occ_t * Occ = create_Occ(BWT);
    fprintf(stderr, "done\n");
-//   NKK_t * NKK = create_NKK(genome, SA, BWT, Occ);
-//
-   fprintf(stderr, "compressing suffix array...");
-           SA  = compress_SA(SA);
+
+   fprintf(stderr, "compressing suffix array... ");
+   compress_SA(SA);
    fprintf(stderr, "done\n");
 
    // Write files

@@ -1,5 +1,5 @@
 #define _GNU_SOURCE
-#include <errno.h>
+#include <ctype.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -29,6 +29,7 @@ extern const uint8_t NONALPHABET[256];
 // to highlight where the alphabet size is important.
 #define AZ 4
 
+// A mask with all 64 bits set to 1.
 #define ALL64 ((uint64_t) 0xFFFFFFFFFFFFFFFF)
 
 // The 'mmap()' option 'MAP_POPULATE' is available
@@ -45,22 +46,6 @@ extern const uint8_t NONALPHABET[256];
 #else
   #define MMAP_FLAGS MAP_PRIVATE
 #endif
-
-
-// ------- Error handling macros ------- //
-
-#define exit_if_null(x) \
-   do { if ((x) == NULL) { fprintf(stderr, "memory error %s:%d:%s()\n", \
-         __FILE__, __LINE__, __func__); exit(EXIT_FAILURE); }} while(0)
-
-#define exit_cannot_open(x) \
-   do { fprintf(stderr, "cannot open file '%s' %s:%d:%s()\n", (x), \
-         __FILE__, __LINE__, __func__); exit(EXIT_FAILURE); } while(0)
-
-#define exit_if(x) \
-   do { if (x) { fprintf(stderr, "%s %s:%d:%s()\n", #x, \
-         __FILE__, __LINE__, __func__); exit(EXIT_FAILURE); }} while(0)
-
 
 // ------- Type definitions ------- //
 
@@ -136,25 +121,32 @@ struct BWT_t {
 };
 
 
-// The (neighbor k-mers keys).
-struct NKK_t {
-   size_t   yz;       // 'strlen(txt) + 1'.
-   size_t   nb;       // Number of slots.
-   uint8_t  byte[0];  // Key encoding.
-};
-
-
 typedef struct block_t block_t;
 typedef struct BWT_t   BWT_t;
-typedef struct NKK_t   NKK_t;
 typedef struct Occ_t   Occ_t;
 typedef struct range_t range_t;
 typedef struct SA_t    SA_t;
 
 
 // Visible functions from search.c.
-range_t backward_search (char *, size_t, const Occ_t *);
+range_t backward_search (const char *, size_t, const Occ_t *);
 size_t  query_SA (SA_t *, BWT_t *, Occ_t *, size_t);
 size_t  get_rank (const Occ_t *, uint8_t, size_t);
+
+
+// ------- Error handling macros ------- //
+
+#define exit_if_null(x) \
+   do { if ((x) == NULL) { fprintf(stderr, "memory error %s:%d:%s()\n", \
+         __FILE__, __LINE__, __func__); exit(EXIT_FAILURE); }} while(0)
+
+#define exit_cannot_open(x) \
+   do { fprintf(stderr, "cannot open file '%s' %s:%d:%s()\n", (x), \
+         __FILE__, __LINE__, __func__); exit(EXIT_FAILURE); } while(0)
+
+#define exit_if(x) \
+   do { if (x) { fprintf(stderr, "%s %s:%d:%s()\n", #x, \
+         __FILE__, __LINE__, __func__); exit(EXIT_FAILURE); }} while(0)
+
 
 #endif

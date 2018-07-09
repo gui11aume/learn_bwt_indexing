@@ -3,9 +3,8 @@
 int main(int argc, char ** argv) {
 
    // Sanity checks.
-   exit_if(argc != 3);
+   exit_if(argc != 2);
    exit_if(strlen(argv[1]) > 250);
-
 
    // Load index files.
    BWT_t  * BWT;
@@ -44,29 +43,9 @@ int main(int argc, char ** argv) {
    exit_if(Occ == NULL);
    close(focc);
 
-   // Open seq file.
-   FILE * fseq = fopen(argv[2], "r");
-   if (fseq == NULL) exit_cannot_open(argv[2]);
-   
-   // Read file line by line.
-   ssize_t rlen;
-   size_t sz = 64; 
-   char * buffer = malloc(64);
-   exit_if_null(buffer);
-
-   while ((rlen = getline(&buffer, &sz, fseq)) != -1) {
-      size_t truth;
-      buffer[rlen-1] = '\0'; 
-      if (buffer[0] == '>') {
-         fprintf(stdout, "%s\n", buffer);
-         truth = atoi(&buffer[1]);
-         continue;
-      }
-      range_t range = backward_search(buffer, 20, Occ);
-      fprintf(stdout, "%s %zu:%zu\n", buffer, range.bot, range.top);
-      for (size_t pos = range.bot ; pos <= range.top ; pos++) {
-         fprintf(stdout, "pos: %zu\n", query_SA(SA, BWT, Occ, pos));
-      }
-   }
+   // Make all 12-mers.
+   //range_t range = backward_search("ATGCTGATGTGATGTGCTGAGA", 12, Occ);
+      range_t range = backward_search("AATCAAAAAAAA", 11, Occ);
+      fprintf(stdout, "%ld, %ld\n", range.bot, range.top);
 
 }
