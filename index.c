@@ -3,189 +3,185 @@
 #include "bwt.h"
 
 
-SA_t *
-create_SA
+int64_t *
+compute_suffix_array
 (
    const char * txt
 )
 {
-   const size_t yz = strlen(txt) + 1;
-   const size_t extra = yz * sizeof(uint64_t);
 
-   SA_t *SA = malloc(sizeof(SA_t) + extra);
-   exit_if_null(SA);
+   const size_t txtlen = strlen(txt) + 1;
+   int64_t *array = malloc(txtlen * sizeof(uint64_t));
+   exit_if_null(array);
 
-   SA->yz = yz;
-   SA->nb = yz;
-   SA->nbits = 64;
-
-   divsufsort((const unsigned char *) txt, SA->bitf, yz);
-
-   return SA;
+   divsufsort((const unsigned char *) txt, array, txtlen);
+   return array;
 
 }
 
 
 
-BWT_t *
-create_BWT
+bwt_t *
+create_bwt
 (
-   const char * TXT,
-         SA_t * SA
+   const char    * txt,
+   const int64_t * sa
 )
 {
 
-   // Do not use on compressed suffix arrays.
-   if (SA->nb != SA->yz) return NULL;
+   // Allocate new 'bwt_t'.
+   const size_t txtlen = strlen(txt);
+   const size_t nslots = (txtlen + (4-1)) / 4;
+   const size_t extra = nslots * sizeof(uint8_t);
 
-   // Allocate new 'BWT_t'.
-   const size_t yz = SA->yz;
-   const size_t nb = (yz + (4-1)) / 4;
-   const size_t extra = nb * sizeof(uint8_t);
+   bwt_t *bwt = calloc(1, sizeof(bwt_t) + extra);
+   exit_if_null(bwt);
 
-   BWT_t *BWT = calloc(1, sizeof(BWT_t) + extra);
-   exit_if_null(BWT);
+   bwt->txtlen = txtlen;
+   bwt->nslots = nslots;
 
-   BWT->yz = yz;
-   BWT->nb = nb;
-
-   for (size_t pos = 0 ; pos < yz ; pos++) {
-      if (SA->bitf[pos] > 0) { 
-         uint8_t c = ENCODE[(uint8_t) TXT[SA->bitf[pos]-1]];
-         BWT->slots[pos/4] |= c << 2*(pos % 4);
+   for (size_t pos = 0 ; pos < txtlen ; pos++) {
+      if (sa[pos] > 0) { 
+         uint8_t c = ENCODE[(uint8_t) txt[sa[pos]-1]];
+         bwt->slots[pos/4] |= c << 2*(pos % 4);
       }
       else {
          // Record the position of the zero.
-         BWT->zero = pos;
+         bwt->zero = pos;
       }
    }
 
-   return BWT;
+   return bwt;
 
 }
 
 
 void
-write_Occ_blocks
+write_occ_blocks
 (
-   Occ_t    * Occ,
+   occ_t    * occ,
    uint32_t * smpl,
    uint32_t * bits,
-   size_t     idx    // Index of 'block_t' in array.
+   size_t     idx    // Index of 'blocc_t' in array.
 )
-// Write 'AZ' smpl/bits blocks to the 'block_t' arrays of 'Occ'
+// Write 'SIGMA' smpl/bits blocks to the 'blocc_t' arrays of 'Occ'
 // at position 'pos' (the array index and not the position in
 // the BWT).
 {
-   for (int i = 0 ; i < AZ ; i++) {
-      Occ->rows[Occ->nb*i + idx].smpl = smpl[i];
-      Occ->rows[Occ->nb*i + idx].bits = bits[i];
+   for (int i = 0 ; i < SIGMA ; i++) {
+      occ->rows[i * occ->nrows + idx].smpl = smpl[i];
+      occ->rows[i * occ->nrows + idx].bits = bits[i];
    }
 }
 
 
 void
-fill_stub
+fill_lut
 (
-   Occ_t   * Occ,
-   range_t   range,
-   size_t    depth,
-   size_t    merid
+         lut_t   * lut,
+   const occ_t   * occ,
+   const range_t   range,
+   const size_t    depth,
+   const size_t    kmerid
 )
 {
-   if (depth >= HSTUB) {
-      Occ->stub[merid] = range;
+   if (depth >= LUTK) {
+      lut->kmer[kmerid] = range;
       return;
    }
-   for (uint8_t c = 0 ; c < AZ ; c++) {
-      size_t bot = get_rank(Occ, c, range.bot - 1);
-      size_t top = get_rank(Occ, c, range.top) - 1;
-      fill_stub(Occ, (range_t) { .bot=bot, .top=top },
-            depth+1, c + (merid << 2));
+   for (uint8_t c = 0 ; c < SIGMA ; c++) {
+      size_t bot = get_rank(occ, c, range.bot - 1);
+      size_t top = get_rank(occ, c, range.top) - 1;
+      fill_lut(lut, occ, (range_t) { .bot=bot, .top=top },
+            depth+1, c + (kmerid << 2));
    }
 }
 
 
-Occ_t *
-create_Occ
+occ_t *
+create_occ
 (
-   BWT_t * BWT
+   bwt_t * bwt
 )
 {
 
    // Allocate new 'Occ_t'.
-   const size_t yz = BWT->yz;
-   const size_t nb = (yz + (32-1)) / 32;
-   const size_t extra = AZ*nb * sizeof(block_t);
+   const size_t txtlen = bwt->txtlen;
+   const size_t nrows = (txtlen + (32-1)) / 32;
+   const size_t extra = SIGMA*nrows * sizeof(blocc_t);
 
-   Occ_t * Occ = malloc(sizeof(Occ_t) + extra);
-   exit_if_null(Occ);
+   occ_t * occ = malloc(sizeof(occ_t) + extra);
+   exit_if_null(occ);
 
-   Occ->nb = nb;
-   Occ->yz = yz;
+   occ->txtlen = txtlen;
+   occ->nrows = nrows;
 
-   uint32_t smpl[AZ] = {0};
-   uint32_t diff[AZ] = {0};
-   uint32_t bits[AZ] = {0};
+   uint32_t smpl[SIGMA] = {0};
+   uint32_t diff[SIGMA] = {0};
+   uint32_t bits[SIGMA] = {0};
 
-   for (size_t pos = 0 ; pos < BWT->yz ; pos++) {
+   for (size_t pos = 0 ; pos < bwt->txtlen ; pos++) {
       // Extract symbol at position 'i' from BWT.
-      uint8_t c = BWT->slots[pos/4] >> 2*(pos % 4) & 0b11;
-      if (pos != BWT->zero) {   // (Skip the '$' symbol).
+      uint8_t c = bwt->slots[pos/4] >> 2*(pos % 4) & 0b11;
+      if (pos != bwt->zero) {   // (Skip the '$' symbol).
          diff[c]++;
          bits[c] |= (1 << (31 - pos % 32));
       }
       if (pos % 32 == 31) {     // Write every 32 entries.
-         write_Occ_blocks(Occ, smpl, bits, pos/32);
-         memcpy(smpl, diff, AZ * sizeof(uint32_t));
+         write_occ_blocks(occ, smpl, bits, pos/32);
+         memcpy(smpl, diff, SIGMA * sizeof(uint32_t));
          bzero(bits, sizeof(bits));
       }
    }
 
-   write_Occ_blocks(Occ, smpl, bits, (BWT->yz-1)/32);
+   write_occ_blocks(occ, smpl, bits, (bwt->txtlen-1)/32);
 
    // Write 'nb' and 'C'.
-   Occ->C[0] = 1;
-   for (int i = 1 ; i < AZ+1 ; i++) {
-      Occ->C[i] = Occ->C[i-1] + diff[i-1];
+   occ->C[0] = 1;
+   for (int i = 1 ; i < SIGMA+1 ; i++) {
+      occ->C[i] = occ->C[i-1] + diff[i-1];
    }
 
-   range_t range = {.bot = 1, .top = yz-1};
-   fill_stub(Occ, range, 0, 0);
-
-   return Occ;
+   return occ;
 
 }
 
 
 
-SA_t *
-compress_SA
+csa_t *
+compress_sa
 (
-   SA_t * SA
+   int64_t * sa
 )
 {
 
-   // TODO: separate compressed and uncompressed SA types.
-   // Make sure that SA is not already compressed.
-   if (SA->nb != SA->yz) return NULL;
+   // The first entry of the suffix array is the length of the text.
+   size_t txtlen = sa[0];
 
    // Compute the number of required bits.
    size_t nbits = 0;
-   while (SA->yz > ((uint64_t) 1 << nbits)) nbits++;
+   while (txtlen > ((uint64_t) 1 << nbits)) nbits++;
+
+   // Compute the number of required bytes and 'uint64_t'.
+   size_t nint64 = (nbits * txtlen + (64-1)) / 64;
+   size_t extra = nint64 / 8;
+   csa_t * csa = malloc(sizeof(csa_t) + extra);
+
+   csa->nbits = nbits;
+   csa->nint64 = nint64;
 
    // Set a mask for the 'nbits' lower bits.
-   uint64_t mask = ALL64 >> (64-nbits);
+   csa->bmask = ((uint64_t) 0xFFFFFFFFFFFFFFFF) >> (64-nbits);
    
    uint8_t lastbit = 0;
    size_t  nb = 0;
 
    // Sample every 16-th value.
-   for (size_t pos = 0 ; pos < SA->yz ; pos += 16) {
+   for (size_t pos = 0 ; pos < txtlen ; pos += 16) {
       // Save the current value.
-      int64_t current = SA->bitf[pos];
+      int64_t current = csa->bitf[pos];
       // Store the compact version.
-      SA->bitf[nb] |= (current & mask) << lastbit;
+      csa->bitf[nb] |= (current & csa->bmask) << lastbit;
       // Update bit offset.
       lastbit += nbits;
       // Word is full.
@@ -193,18 +189,14 @@ compress_SA
          lastbit = lastbit - 64;
          // Complete with remainder or set to 0 (if lastbit = 0).
          // This will clear the upper bits of array.
-         SA->bitf[++nb] = (current & mask) >> (nbits - lastbit);
+         csa->bitf[++nb] = (current & csa->bmask) >> (nbits - lastbit);
       }
    }
 
-   nb += (lastbit > 0);
+   // XXX Is this really needed?
+   // nb += (lastbit > 0);
 
-   SA->nb = nb;
-   SA->nbits = nbits;
-
-   // Reallocate the 'SA_t'.
-   size_t extra = nb * sizeof(int64_t);
-   return realloc(SA, sizeof(SA_t) + extra);
+   return csa;
 
 }
 
@@ -242,7 +234,7 @@ normalize_genome
       gsize += rlen - one_if_newline;
    }
 
-   // Normalize (use only alphabet letters).
+   // Normalize (use only capital alphabet letters).
    for (size_t pos = 0; pos < gsize ; pos++) {
       int iter = 0;
       if (NONALPHABET[(uint8_t) genome[pos]]) {
@@ -295,19 +287,24 @@ int main(int argc, char ** argv) {
    fprintf(stderr, "done\n");
 
    fprintf(stderr, "creating suffix array... ");
-   SA_t * SA  = create_SA(genome);
+   int64_t * sa = compute_suffix_array(genome);
    fprintf(stderr, "done\n");
 
    fprintf(stderr, "creating BWT... ");
-   BWT_t * BWT = create_BWT(genome, SA);
+   bwt_t * bwt = create_bwt(genome, sa);
    fprintf(stderr, "done\n");
 
    fprintf(stderr, "creating Occ table... ");
-   Occ_t * Occ = create_Occ(BWT);
+   occ_t * occ = create_occ(bwt);
+   fprintf(stderr, "done\n");
+
+   fprintf(stderr, "filling lookup table... ");
+   lut_t * lut = malloc(sizeof(lut_t));
+   fill_lut(lut, occ, (range_t) {.bot=1, .top=strlen(genome)}, 0, 0);
    fprintf(stderr, "done\n");
 
    fprintf(stderr, "compressing suffix array... ");
-   compress_SA(SA);
+   csa_t * csa = compress_sa(sa);
    fprintf(stderr, "done\n");
 
    // Write files
@@ -322,8 +319,8 @@ int main(int argc, char ** argv) {
    if (fsar < 0) exit_cannot_open(buff);
    
    ws = 0;
-   sz = sizeof(SA_t) + SA->nb * sizeof(int64_t);
-   data = (char *) SA;
+   sz = sizeof(csa_t) + csa->nint64 * sizeof(int64_t);
+   data = (char *) csa;
    while (ws < sz) ws += write(fsar, data + ws, sz - ws);
    close(fsar);
 
@@ -334,8 +331,8 @@ int main(int argc, char ** argv) {
    if (fbwt < 0) exit_cannot_open(buff);
 
    ws = 0;
-   sz = sizeof(BWT_t) + BWT->nb * sizeof(uint8_t);
-   data = (char *) BWT;
+   sz = sizeof(bwt_t) + bwt->nslots * sizeof(uint8_t);
+   data = (char *) bwt;
    while (ws < sz) ws += write(fbwt, data + ws, sz - ws);
    close(fbwt);
 
@@ -346,14 +343,15 @@ int main(int argc, char ** argv) {
    if (focc < 0) exit_cannot_open(buff);
 
    ws = 0;
-   sz = sizeof(Occ_t) + Occ->nb * AZ * sizeof(block_t);
-   data = (char *) Occ;
+   sz = sizeof(occ_t) + occ->nrows * SIGMA * sizeof(blocc_t);
+   data = (char *) occ;
    while (ws < sz) ws += write(focc, data + ws, sz - ws);
    close(focc);
 
    // Clean up.
-   free(SA);
-   free(BWT);
-   free(Occ);
+   free(csa);
+   free(bwt);
+   free(occ);
+   free(lut);
 
 }
