@@ -1,7 +1,7 @@
 P= index seed
 
 CC= gcc
-CFLAGS= -std=c99 -Wall
+CFLAGS= -std=c99 -Wall -DASMAIN
 
 all: CFLAGS += -DNDEBUG -O3
 all: $(P)

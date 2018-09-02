@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+/*
 
 #ifndef _BWT_INDEX_H_
 #define _BWT_INDEX_H_
@@ -21,9 +22,7 @@
 
 #define SIGMA 4
 
-
-
-// ------- Exteran data ------- //
+// ------- External data ------- //
 
 extern const char    ALPHABET[4];
 extern const char    ENCODE[256];
@@ -140,7 +139,6 @@ size_t  get_rank (const occ_t *, uint8_t, size_t);
 
 
 // ------- Machine-specific code ------- //
-
 // The 'mmap()' option 'MAP_POPULATE' is available
 // only on Linux and from kern version 2.6.23.
 #if __linux__
@@ -155,6 +153,5 @@ size_t  get_rank (const occ_t *, uint8_t, size_t);
 #else
   #define MMAP_FLAGS MAP_PRIVATE
 #endif
-
-
 #endif
+*/
